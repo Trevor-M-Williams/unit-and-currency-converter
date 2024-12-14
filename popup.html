@@ -9,6 +9,10 @@
       }
       .toggle-section {
         margin: 10px 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 10px;
       }
       .switch {
         position: relative;
@@ -50,18 +54,38 @@
         transform: translateX(26px);
       }
       .unit-label {
-        margin-left: 70px;
+        font-weight: bold;
+        color: #555;
+      }
+      .currency-section {
+        margin: 10px 0;
+      }
+      select {
+        width: 100%;
+        padding: 5px;
+        margin-top: 5px;
       }
     </style>
   </head>
   <body>
     <h2>Unit Converter</h2>
     <div class="toggle-section">
+      <span class="unit-label">US</span>
       <label class="switch">
         <input type="checkbox" id="unitToggle" />
         <span class="slider"></span>
       </label>
-      <span class="unit-label" id="unitLabel">Imperial</span>
+      <span class="unit-label">Metric</span>
+    </div>
+    <div class="currency-section">
+      <label for="currencySelect">Target Currency:</label>
+      <select id="currencySelect">
+        <option value="usd">USD</option>
+        <option value="eur">EUR</option>
+        <option value="gbp">GBP</option>
+        <option value="jpy">JPY</option>
+        <option value="inr">INR</option>
+      </select>
     </div>
     <script src="popup.js"></script>
     <script src="lib/convert.js"></script>

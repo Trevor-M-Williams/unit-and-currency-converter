@@ -1,5 +1,14 @@
 const { convert } = window.convert;
 
+/* 
+TODO:
+- Handle all currency symbols
+- Use data attributes to avoid data loss (also more performant)
+- Add scientific notation
+- Update currency on select without reloading page
+  - The user might be filling out a form or something...
+*/
+
 let isMetric = false;
 const sortedImperialPatterns = sortPatterns("imperial");
 const sortedMetricPatterns = sortPatterns("metric");
@@ -55,6 +64,16 @@ const currencyObserver = new MutationObserver((mutations) => {
 currencyObserver.observe(document.body, {
   childList: true,
   subtree: true,
+});
+
+// Add this near the top of content.js with other listeners
+chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+  if (request.action === "convertCurrency") {
+    console.log("Received conversion request");
+    convertCurrency();
+    sendResponse({ status: "success" }); // Acknowledge receipt
+  }
+  return true; // Keep the message channel open
 });
 
 function convertText(text) {
@@ -116,15 +135,21 @@ function convertText(text) {
             unit: "m³",
           };
           break;
+        case "ac":
+          result = {
+            quantity: convert(value, unit).to("ha"),
+            unit: "ha",
+          };
+          break;
         default:
           result = convert(value, unit).to("best", targetSystem);
       }
 
       let decimals;
-      if (result.quantity <= 0.01) decimals = 4;
-      else if (result.quantity <= 0.1) decimals = 3;
-      else if (result.quantity <= 1) decimals = 2;
-      else if (result.quantity <= 10) decimals = 1;
+      if (result.quantity < 0.01) decimals = 4;
+      else if (result.quantity < 0.1) decimals = 3;
+      else if (result.quantity < 1) decimals = 2;
+      else if (result.quantity < 10) decimals = 1;
       else decimals = 0;
 
       const formattedValue = result.quantity.toFixed(decimals);
@@ -137,14 +162,23 @@ function convertText(text) {
 }
 
 async function convertCurrency() {
-  const url =
-    "https://cdn.jsdelivr.net/npm/@fawazahmed0/currency-api@latest/v1/currencies/usd.json";
+  let targetCurrency = "usd"; // default
+
+  // Get user's preferred currency
+  try {
+    const result = await chrome.storage.sync.get(["targetCurrency"]);
+    targetCurrency = result.targetCurrency || "usd";
+  } catch (error) {
+    console.error("Error getting target currency:", error);
+  }
+
+  const url = `https://cdn.jsdelivr.net/npm/@fawazahmed0/currency-api@latest/v1/currencies/${targetCurrency}.json`;
 
   try {
     // Fetch exchange rates
     const response = await fetch(url);
     const data = await response.json();
-    const rates = data.usd;
+    const rates = data[targetCurrency];
 
     // Map of currency symbols to their codes
     const symbolToCode = {
@@ -163,12 +197,12 @@ async function convertCurrency() {
 
       const cleanAmount = amount.replace(/[\s,]/g, "");
       const value = parseFloat(cleanAmount);
-      const usdValue = value / rates[currencyCode];
+      const convertedValue = value / rates[currencyCode];
 
-      return new Intl.NumberFormat("en-US", {
+      return new Intl.NumberFormat(undefined, {
         style: "currency",
-        currency: "USD",
-      }).format(usdValue);
+        currency: targetCurrency.toUpperCase(),
+      }).format(convertedValue);
     };
 
     // Find all text nodes that contain numbers
